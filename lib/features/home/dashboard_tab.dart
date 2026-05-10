@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../theme/app_colors.dart';
+import '../shell/offline_queue_controller.dart';
+import '../shell/telemetry_controller.dart';
 import '../shift/shift_controller.dart';
 import 'home_controller.dart';
 
@@ -30,6 +32,8 @@ class _DashboardTabState extends State<DashboardTab> {
     final t = Theme.of(context).textTheme;
     final home = context.watch<HomeController>();
     final shifts = context.watch<ShiftController>();
+    final queue = context.watch<OfflineQueueController>();
+    final telemetry = context.watch<TelemetryController>();
 
     final nextShift = shifts.nextShift;
     final subtitle = nextShift == null
@@ -58,7 +62,9 @@ class _DashboardTabState extends State<DashboardTab> {
                 child: _MiniStat(
                   label: 'On duty',
                   value: shifts.activeSession != null ? 'YES' : 'NO',
-                  hint: shifts.activeSession != null ? 'Session active' : 'Awaiting check-in',
+                  hint: shifts.activeSession != null
+                      ? 'Session active'
+                      : 'Awaiting check-in',
                   icon: Icons.location_on_outlined,
                   color: AppColors.success,
                 ),
@@ -77,14 +83,17 @@ class _DashboardTabState extends State<DashboardTab> {
             ],
           ),
           const SizedBox(height: 24),
-          Text('Quick actions', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Quick actions',
+              style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           _QuickRow(
             icon: Icons.login_rounded,
             label: 'Check-in',
             sub: 'Use Shift tab for GPS check-in',
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Open Shift tab to check in with live location.')),
+              const SnackBar(
+                  content:
+                      Text('Open Shift tab to check in with live location.')),
             ),
           ),
           _QuickRow(
@@ -92,22 +101,53 @@ class _DashboardTabState extends State<DashboardTab> {
             label: 'Check-out',
             sub: 'Use Shift tab for GPS check-out',
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Open Shift tab to check out with live location.')),
+              const SnackBar(
+                  content:
+                      Text('Open Shift tab to check out with live location.')),
             ),
           ),
           _QuickRow(
             icon: Icons.camera_alt_outlined,
             label: 'Visual log',
-            sub: 'Use Safety tab incident attachment',
+            sub: 'Use Safety tab hourly all-clear form',
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Use Safety tab to submit incident with photo.')),
+              const SnackBar(
+                  content: Text(
+                      'Open Safety tab to capture an all-clear visual log.')),
             ),
           ),
           _QuickRow(
             icon: Icons.gps_fixed,
             label: 'Telemetry',
-            sub: 'Available once shift session is active',
-            onTap: () {},
+            sub: telemetry.running
+                ? 'Active · ${telemetry.lastSentAt?.toLocal().toString().substring(11, 16) ?? 'sending soon'}'
+                : 'Starts automatically after check-in',
+            onTap: () async {
+              final telemetryController = context.read<TelemetryController>();
+              final queueController = context.read<OfflineQueueController>();
+              await telemetryController.sendNow();
+              await queueController.refresh();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(telemetryController.error ??
+                        'Telemetry ping sent or queued.')),
+              );
+            },
+          ),
+          _QuickRow(
+            icon: Icons.cloud_sync_outlined,
+            label: 'Offline queue',
+            sub:
+                '${queue.pending} pending action${queue.pending == 1 ? '' : 's'}',
+            onTap: () async {
+              final queueController = context.read<OfflineQueueController>();
+              final synced = await queueController.flush();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Replayed $synced queued actions.')),
+              );
+            },
           ),
           const SizedBox(height: 20),
           Card(
@@ -115,12 +155,14 @@ class _DashboardTabState extends State<DashboardTab> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: AppColors.silverMuted.withValues(alpha: 0.9)),
+                  Icon(Icons.info_outline_rounded,
+                      color: AppColors.silverMuted.withValues(alpha: 0.9)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       home.error ?? 'Live summary connected to /guard/summary.',
-                      style: t.bodySmall?.copyWith(color: AppColors.silverMuted, height: 1.35),
+                      style: t.bodySmall?.copyWith(
+                          color: AppColors.silverMuted, height: 1.35),
                     ),
                   ),
                 ],
@@ -176,11 +218,13 @@ class _StatusHero extends StatelessWidget {
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.warning.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.45)),
+                  border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.45)),
                 ),
                 child: Text(
                   badge,
@@ -193,7 +237,8 @@ class _StatusHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text(title, style: t.labelLarge?.copyWith(color: AppColors.silverMuted)),
+          Text(title,
+              style: t.labelLarge?.copyWith(color: AppColors.silverMuted)),
           const SizedBox(height: 4),
           Text(
             subtitle,
@@ -242,9 +287,12 @@ class _MiniStat extends StatelessWidget {
             style: t.labelSmall?.copyWith(color: AppColors.silverMuted),
           ),
           const SizedBox(height: 4),
-          Text(value, style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+          Text(value,
+              style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          Text(hint, style: t.labelSmall?.copyWith(color: AppColors.silverMuted.withValues(alpha: 0.75))),
+          Text(hint,
+              style: t.labelSmall?.copyWith(
+                  color: AppColors.silverMuted.withValues(alpha: 0.75))),
         ],
       ),
     );
@@ -285,12 +333,17 @@ class _QuickRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(label, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                      Text(sub, style: t.bodySmall?.copyWith(color: AppColors.silverMuted)),
+                      Text(label,
+                          style: t.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                      Text(sub,
+                          style: t.bodySmall
+                              ?.copyWith(color: AppColors.silverMuted)),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, color: AppColors.silverMuted.withValues(alpha: 0.6)),
+                Icon(Icons.chevron_right_rounded,
+                    color: AppColors.silverMuted.withValues(alpha: 0.6)),
               ],
             ),
           ),

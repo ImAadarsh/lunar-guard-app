@@ -75,7 +75,8 @@ ThemeData buildLunarTheme() {
         borderSide: const BorderSide(color: AppColors.silver, width: 1.5),
       ),
       labelStyle: GoogleFonts.inter(color: AppColors.silverMuted),
-      hintStyle: GoogleFonts.inter(color: AppColors.silverMuted.withValues(alpha: 0.7)),
+      hintStyle: GoogleFonts.inter(
+          color: AppColors.silverMuted.withValues(alpha: 0.7)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(

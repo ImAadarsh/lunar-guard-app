@@ -46,5 +46,6 @@ class IncidentReport {
   }
 
   static int _int(dynamic v) => int.tryParse(v?.toString() ?? '') ?? 0;
-  static DateTime? _dt(dynamic v) => v == null ? null : DateTime.tryParse(v.toString());
+  static DateTime? _dt(dynamic v) =>
+      v == null ? null : DateTime.tryParse(v.toString());
 }

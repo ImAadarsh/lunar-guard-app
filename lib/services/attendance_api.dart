@@ -5,7 +5,8 @@ class AttendanceApi {
 
   final Dio _dio;
 
-  Future<int> checkIn({required int shiftId, required double lat, required double lng}) async {
+  Future<int> checkIn(
+      {required int shiftId, required double lat, required double lng}) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/attendance/check-in',
       data: {'shiftId': shiftId, 'lat': lat, 'lng': lng},
@@ -14,7 +15,10 @@ class AttendanceApi {
     return int.tryParse(data['sessionId']?.toString() ?? '') ?? 0;
   }
 
-  Future<void> checkOut({required int sessionId, required double lat, required double lng}) async {
+  Future<void> checkOut(
+      {required int sessionId,
+      required double lat,
+      required double lng}) async {
     await _dio.post<Map<String, dynamic>>(
       '/attendance/check-out',
       data: {'sessionId': sessionId, 'lat': lat, 'lng': lng},
@@ -25,6 +29,19 @@ class AttendanceApi {
     final res = await _dio.get<Map<String, dynamic>>('/attendance/sessions');
     final items = (res.data?['data'] as Map?)?['items'];
     if (items is! List) return const [];
-    return items.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return items
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<void> submitGpsTelemetry({
+    required int shiftId,
+    required List<Map<String, dynamic>> points,
+  }) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/telemetry/gps',
+      data: {'shiftId': shiftId, 'points': points},
+    );
   }
 }

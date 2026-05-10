@@ -21,6 +21,7 @@ class _ShiftTabState extends State<ShiftTab> {
   String _leaveType = 'annual';
   DateTime? _leaveStart;
   DateTime? _leaveEnd;
+  String? _geofenceHint;
 
   @override
   void initState() {
@@ -42,14 +43,39 @@ class _ShiftTabState extends State<ShiftTab> {
     final c = context.read<ShiftController>();
     try {
       final p = await _location.getCurrentLatLng();
+      final shift = c.nextShift;
+      if (shift != null) {
+        setState(() {
+          _geofenceHint = c.geofenceHintFor(shift, lat: p.lat, lng: p.lng);
+        });
+      }
       final err = await c.checkIn(lat: p.lat, lng: p.lng);
       if (!mounted) return;
       if (err != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(err)));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Future<void> _previewGeofence() async {
+    final c = context.read<ShiftController>();
+    final shift = c.nextShift;
+    if (shift == null) return;
+    try {
+      final p = await _location.getCurrentLatLng();
+      if (!mounted) return;
+      setState(() {
+        _geofenceHint = c.geofenceHintFor(shift, lat: p.lat, lng: p.lng);
+      });
+    } catch (_) {
+      setState(() {
+        _geofenceHint = c.geofenceHintFor(shift);
+      });
     }
   }
 
@@ -60,11 +86,13 @@ class _ShiftTabState extends State<ShiftTab> {
       final err = await c.checkOut(lat: p.lat, lng: p.lng);
       if (!mounted) return;
       if (err != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(err)));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -72,7 +100,8 @@ class _ShiftTabState extends State<ShiftTab> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: start ? (_leaveStart ?? now) : (_leaveEnd ?? _leaveStart ?? now),
+      initialDate:
+          start ? (_leaveStart ?? now) : (_leaveEnd ?? _leaveStart ?? now),
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 2),
     );
@@ -112,7 +141,8 @@ class _ShiftTabState extends State<ShiftTab> {
       _leaveType = 'annual';
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Leave request submitted for manager approval.')),
+      const SnackBar(
+          content: Text('Leave request submitted for manager approval.')),
     );
   }
 
@@ -130,7 +160,8 @@ class _ShiftTabState extends State<ShiftTab> {
             ? 'Time TBD'
             : '${starts.toString().substring(0, 16)} – ${ends.toString().substring(11, 16)}',
         role: 'Shift #${s.id}',
-        state: s.status == 'completed' ? _ShiftState.done : _ShiftState.upcoming,
+        state:
+            s.status == 'completed' ? _ShiftState.done : _ShiftState.upcoming,
       );
     }).toList();
 
@@ -148,7 +179,8 @@ class _ShiftTabState extends State<ShiftTab> {
           ),
           const SizedBox(height: 12),
           if (shiftCards.isEmpty)
-            Text('No shifts available.', style: t.bodySmall?.copyWith(color: AppColors.silverMuted))
+            Text('No shifts available.',
+                style: t.bodySmall?.copyWith(color: AppColors.silverMuted))
           else
             ...shiftCards.expand((w) => [w, const SizedBox(height: 12)]),
           const SizedBox(height: 12),
@@ -165,19 +197,27 @@ class _ShiftTabState extends State<ShiftTab> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.radar, color: AppColors.success.withValues(alpha: 0.9)),
+                      Icon(Icons.radar,
+                          color: AppColors.success.withValues(alpha: 0.9)),
                       const SizedBox(width: 10),
                       Text(
-                        c.activeSession == null ? 'Not checked in' : 'Active session #${c.activeSession!.id}',
-                        style: t.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                        c.activeSession == null
+                            ? 'Not checked in'
+                            : 'Active session #${c.activeSession!.id}',
+                        style:
+                            t.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     c.error ??
-                        'One-tap check-in uses live GPS and backend geofence validation.',
-                    style: t.bodySmall?.copyWith(color: AppColors.silverMuted, height: 1.4),
+                        _geofenceHint ??
+                        (c.nextShift == null
+                            ? 'One-tap check-in uses live GPS and backend geofence validation.'
+                            : c.geofenceHintFor(c.nextShift!)),
+                    style: t.bodySmall
+                        ?.copyWith(color: AppColors.silverMuted, height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -204,12 +244,19 @@ class _ShiftTabState extends State<ShiftTab> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: c.loading ? null : _previewGeofence,
+                    icon: const Icon(Icons.my_location_rounded, size: 18),
+                    label: const Text('Preview geofence with current GPS'),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          Text('Map preview', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Map preview',
+              style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           if (ApiConfig.googleMapsApiKey.isEmpty)
             Text(
@@ -233,7 +280,8 @@ class _ShiftTabState extends State<ShiftTab> {
               ),
             ),
           const SizedBox(height: 20),
-          Text('Leave request', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Leave request',
+              style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           Card(
             child: Padding(
@@ -249,7 +297,8 @@ class _ShiftTabState extends State<ShiftTab> {
                       DropdownMenuItem(value: 'unpaid', child: Text('Unpaid')),
                       DropdownMenuItem(value: 'other', child: Text('Other')),
                     ],
-                    onChanged: (v) => setState(() => _leaveType = v ?? 'annual'),
+                    onChanged: (v) =>
+                        setState(() => _leaveType = v ?? 'annual'),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -260,7 +309,9 @@ class _ShiftTabState extends State<ShiftTab> {
                           child: Text(
                             _leaveStart == null
                                 ? 'Start date'
-                                : _leaveStart!.toIso8601String().substring(0, 10),
+                                : _leaveStart!
+                                    .toIso8601String()
+                                    .substring(0, 10),
                           ),
                         ),
                       ),
@@ -269,7 +320,9 @@ class _ShiftTabState extends State<ShiftTab> {
                         child: OutlinedButton(
                           onPressed: () => _pickLeaveDate(start: false),
                           child: Text(
-                            _leaveEnd == null ? 'End date' : _leaveEnd!.toIso8601String().substring(0, 10),
+                            _leaveEnd == null
+                                ? 'End date'
+                                : _leaveEnd!.toIso8601String().substring(0, 10),
                           ),
                         ),
                       ),
@@ -279,7 +332,8 @@ class _ShiftTabState extends State<ShiftTab> {
                   TextField(
                     controller: _leaveReason,
                     maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Reason (optional)'),
+                    decoration:
+                        const InputDecoration(labelText: 'Reason (optional)'),
                   ),
                   const SizedBox(height: 12),
                   FilledButton(
@@ -288,22 +342,26 @@ class _ShiftTabState extends State<ShiftTab> {
                   ),
                   if (leave.error != null) ...[
                     const SizedBox(height: 8),
-                    Text(leave.error!, style: t.bodySmall?.copyWith(color: AppColors.warning)),
+                    Text(leave.error!,
+                        style: t.bodySmall?.copyWith(color: AppColors.warning)),
                   ],
                 ],
               ),
             ),
           ),
           const SizedBox(height: 10),
-          Text('My leave requests', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          Text('My leave requests',
+              style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           if (leave.requests.isEmpty)
-            Text('No leave requests yet.', style: t.bodySmall?.copyWith(color: AppColors.silverMuted))
+            Text('No leave requests yet.',
+                style: t.bodySmall?.copyWith(color: AppColors.silverMuted))
           else
             ...leave.requests.take(6).map(
                   (r) => ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text('${r.leaveType.toUpperCase()} · ${r.startDate} to ${r.endDate}'),
+                    title: Text(
+                        '${r.leaveType.toUpperCase()} · ${r.startDate} to ${r.endDate}'),
                     subtitle: Text(r.reason ?? 'No reason'),
                     trailing: Text(r.status),
                   ),
@@ -343,10 +401,13 @@ class _ShiftCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(site, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(site,
+                      style:
+                          t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: isDone
                         ? AppColors.success.withValues(alpha: 0.15)
@@ -364,9 +425,11 @@ class _ShiftCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Text(window, style: t.bodyMedium?.copyWith(color: AppColors.silver)),
+            Text(window,
+                style: t.bodyMedium?.copyWith(color: AppColors.silver)),
             const SizedBox(height: 4),
-            Text(role, style: t.bodySmall?.copyWith(color: AppColors.silverMuted)),
+            Text(role,
+                style: t.bodySmall?.copyWith(color: AppColors.silverMuted)),
           ],
         ),
       ),

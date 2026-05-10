@@ -120,7 +120,8 @@ class AuthController extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      final body = await _auth.login2fa(preAuthToken: preAuthToken!, token: totp.trim());
+      final body =
+          await _auth.login2fa(preAuthToken: preAuthToken!, token: totp.trim());
       final data = _unwrapData(body);
       if (data == null) return 'Unexpected response';
       needsTwoFactor = false;
@@ -158,7 +159,8 @@ class AuthController extends ChangeNotifier {
   void applyPreAuthUser(Map<String, dynamic> data) {
     final userRaw = data['user'];
     if (userRaw is Map) {
-      profile = UserProfile.fromJson(_normalizeUserJson(Map<String, dynamic>.from(userRaw)));
+      profile = UserProfile.fromJson(
+          _normalizeUserJson(Map<String, dynamic>.from(userRaw)));
       notifyListeners();
     }
   }
@@ -219,7 +221,8 @@ class AuthController extends ChangeNotifier {
       final m = data['error']['message'];
       if (m is String) return m;
     }
-    if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError) {
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.connectionError) {
       return 'Cannot reach API. Check API_BASE_URL / Wi‑Fi / server.';
     }
     return e.message ?? 'Request failed';

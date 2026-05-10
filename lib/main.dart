@@ -8,8 +8,11 @@ import 'features/home/home_controller.dart';
 import 'features/patrol/patrol_controller.dart';
 import 'features/safety/incident_controller.dart';
 import 'features/shell/notifications_controller.dart';
+import 'features/shell/offline_queue_controller.dart';
+import 'features/shell/telemetry_controller.dart';
 import 'features/shift/leave_controller.dart';
 import 'features/shift/shift_controller.dart';
+import 'services/local_notification_service.dart';
 import 'theme/app_colors.dart';
 
 Future<void> main() async {
@@ -28,6 +31,7 @@ Future<void> main() async {
   ]);
   final auth = AuthController();
   await auth.init();
+  await LocalNotificationService.init();
   runApp(
     MultiProvider(
       providers: [
@@ -38,6 +42,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => PatrolController()),
         ChangeNotifierProvider(create: (_) => IncidentController()),
         ChangeNotifierProvider(create: (_) => NotificationsController()),
+        ChangeNotifierProvider(create: (_) => OfflineQueueController()),
+        ChangeNotifierProvider(create: (_) => TelemetryController()),
       ],
       child: const LunarSecurityApp(),
     ),

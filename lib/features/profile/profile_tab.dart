@@ -53,15 +53,18 @@ class ProfileTab extends StatelessWidget {
                   children: [
                     Text(
                       p?.email.split('@').first ?? '…',
-                      style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                      style:
+                          t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     Text(
                       p?.email ?? '',
-                      style: t.bodySmall?.copyWith(color: AppColors.silverMuted),
+                      style:
+                          t.bodySmall?.copyWith(color: AppColors.silverMuted),
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(6),
@@ -78,7 +81,8 @@ class ProfileTab extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         'Status · ${p.status}',
-                        style: t.bodySmall?.copyWith(color: AppColors.silverMuted),
+                        style:
+                            t.bodySmall?.copyWith(color: AppColors.silverMuted),
                       ),
                     ],
                   ],
@@ -87,11 +91,26 @@ class ProfileTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 28),
-          _ProfileTile(icon: Icons.badge_outlined, label: 'Certifications', onTap: () {}),
-          _ProfileTile(icon: Icons.notifications_outlined, label: 'Alerts & SOS test', onTap: () {}),
-          _ProfileTile(icon: Icons.battery_charging_full_rounded, label: 'Tracking & battery', onTap: () {}),
-          _ProfileTile(icon: Icons.storage_rounded, label: 'Offline queue', onTap: () {}),
-          _ProfileTile(icon: Icons.policy_outlined, label: 'Privacy & data', onTap: () {}),
+          _ProfileTile(
+              icon: Icons.badge_outlined,
+              label: 'Certifications',
+              onTap: () {}),
+          _ProfileTile(
+              icon: Icons.notifications_outlined,
+              label: 'Alerts & SOS test',
+              onTap: () {}),
+          _ProfileTile(
+              icon: Icons.battery_charging_full_rounded,
+              label: 'Tracking & battery',
+              onTap: () {}),
+          _ProfileTile(
+              icon: Icons.storage_rounded,
+              label: 'Offline queue',
+              onTap: () {}),
+          _ProfileTile(
+              icon: Icons.policy_outlined,
+              label: 'Privacy & data',
+              onTap: () {}),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: auth.busy
@@ -99,7 +118,8 @@ class ProfileTab extends StatelessWidget {
                 : () async {
                     await context.read<AuthController>().signOut();
                     if (context.mounted) {
-                      Navigator.of(context).pushNamedAndRemoveUntil(LoginScreen.routeName, (r) => false);
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                          LoginScreen.routeName, (r) => false);
                     }
                   },
             style: OutlinedButton.styleFrom(
@@ -107,8 +127,11 @@ class ProfileTab extends StatelessWidget {
               side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            icon: Icon(Icons.logout_rounded, color: AppColors.danger.withValues(alpha: 0.9)),
-            label: Text('Sign out', style: TextStyle(color: AppColors.danger.withValues(alpha: 0.95))),
+            icon: Icon(Icons.logout_rounded,
+                color: AppColors.danger.withValues(alpha: 0.9)),
+            label: Text('Sign out',
+                style:
+                    TextStyle(color: AppColors.danger.withValues(alpha: 0.95))),
           ),
         ],
       ),
@@ -144,8 +167,12 @@ class _ProfileTile extends StatelessWidget {
               children: [
                 Icon(icon, color: AppColors.silver, size: 22),
                 const SizedBox(width: 14),
-                Expanded(child: Text(label, style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w500))),
-                Icon(Icons.chevron_right_rounded, color: AppColors.silverMuted.withValues(alpha: 0.6)),
+                Expanded(
+                    child: Text(label,
+                        style: t.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w500))),
+                Icon(Icons.chevron_right_rounded,
+                    color: AppColors.silverMuted.withValues(alpha: 0.6)),
               ],
             ),
           ),

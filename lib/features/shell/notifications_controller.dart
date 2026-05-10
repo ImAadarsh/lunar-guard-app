@@ -30,7 +30,9 @@ class NotificationsController extends ChangeNotifier {
       error = null;
     } on DioException catch (e) {
       final data = e.response?.data;
-      if (data is Map && data['error'] is Map && data['error']['message'] is String) {
+      if (data is Map &&
+          data['error'] is Map &&
+          data['error']['message'] is String) {
         error = data['error']['message'] as String;
       } else {
         error = e.message ?? 'Failed loading notifications';

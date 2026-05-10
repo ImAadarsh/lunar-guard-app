@@ -17,7 +17,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
@@ -25,8 +26,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
-    _fade = CurvedAnimation(parent: _controller, curve: const Interval(0, 0.65, curve: Curves.easeOut));
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1400));
+    _fade = CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0, 0.65, curve: Curves.easeOut));
     _scale = Tween<double>(begin: 0.92, end: 1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
@@ -43,7 +47,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         } else {
           await auth.signOut();
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(gateErr)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(gateErr)));
         }
       }
       Navigator.of(context).pushReplacementNamed(next);
@@ -84,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Image.asset(
-                      'assets/images/logo_full.jpeg',
+                      'assets/images/logo_without_bg.png',
                       width: 220,
                       fit: BoxFit.contain,
                     ),

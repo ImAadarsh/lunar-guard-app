@@ -7,7 +7,8 @@ import '../../services/leave_requests_api.dart';
 import '../../services/secure_token_store.dart';
 
 class LeaveController extends ChangeNotifier {
-  LeaveController({SecureTokenStore? tokenStore}) : _tokenStore = tokenStore ?? SecureTokenStore() {
+  LeaveController({SecureTokenStore? tokenStore})
+      : _tokenStore = tokenStore ?? SecureTokenStore() {
     _api = LeaveRequestsApi(ApiClient.createAuthorized(_tokenStore));
   }
 
@@ -55,7 +56,9 @@ class LeaveController extends ChangeNotifier {
 
   String _err(DioException e) {
     final data = e.response?.data;
-    if (data is Map && data['error'] is Map && data['error']['message'] is String) {
+    if (data is Map &&
+        data['error'] is Map &&
+        data['error']['message'] is String) {
       return data['error']['message'] as String;
     }
     return e.message ?? 'Request failed';

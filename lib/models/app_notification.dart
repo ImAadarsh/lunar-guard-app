@@ -23,8 +23,12 @@ class AppNotification {
       type: json['type']?.toString() ?? 'generic',
       title: json['title']?.toString() ?? '',
       body: json['body']?.toString(),
-      readAt: json['readAt'] == null ? null : DateTime.tryParse(json['readAt'].toString()),
-      createdAt: json['createdAt'] == null ? null : DateTime.tryParse(json['createdAt'].toString()),
+      readAt: json['readAt'] == null
+          ? null
+          : DateTime.tryParse(json['readAt'].toString()),
+      createdAt: json['createdAt'] == null
+          ? null
+          : DateTime.tryParse(json['createdAt'].toString()),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../auth/auth_controller.dart';
 import '../../theme/app_colors.dart';
 import '../shell/guard_shell.dart';
+import '../shell/offline_queue_controller.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,6 +41,19 @@ class _LoginScreenState extends State<LoginScreen> {
     await _biometricGateThenOpen();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (!mounted) return;
+      try {
+        context.read<OfflineQueueController>().refresh();
+      } on ProviderNotFoundException {
+        // Some widget tests mount LoginScreen without the full app provider tree.
+      }
+    });
+  }
+
   Future<void> _submit2fa() async {
     final auth = context.read<AuthController>();
     final err = await auth.completeTwoFactor(_totp.text);
@@ -70,6 +84,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final auth = context.watch<AuthController>();
+    OfflineQueueController? queue;
+    try {
+      queue = context.watch<OfflineQueueController>();
+    } on ProviderNotFoundException {
+      queue = null;
+    }
     final loading = auth.busy;
     final needs2fa = auth.needsTwoFactor;
 
@@ -95,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 Align(
                   child: Image.asset(
-                    'assets/images/logo_mark.png',
+                    'assets/images/logo_without_bg.png',
                     height: 100,
                     fit: BoxFit.contain,
                   ),
@@ -133,7 +153,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                      icon: Icon(_obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined),
                       onPressed: () => setState(() => _obscure = !_obscure),
                     ),
                   ),
@@ -171,7 +193,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? const SizedBox(
                           height: 22,
                           width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onDark),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.onDark),
                         )
                       : Text(needs2fa ? 'Verify & sign in' : 'Sign in'),
                 ),
@@ -183,7 +206,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         'Low-connectivity mode',
-                        style: t.labelSmall?.copyWith(color: AppColors.silverMuted),
+                        style: t.labelSmall
+                            ?.copyWith(color: AppColors.silverMuted),
                       ),
                     ),
                     const Expanded(child: Divider(color: AppColors.outline)),
@@ -191,20 +215,37 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: queue == null || queue.syncing
+                      ? null
+                      : () async {
+                          final synced = await queue!.flush();
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Pending ${queue.pending}. Synced $synced queued actions.')),
+                          );
+                        },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.silver,
                     side: const BorderSide(color: AppColors.outline),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   icon: const Icon(Icons.cloud_off_outlined, size: 20),
-                  label: const Text('Queue status (offline)'),
+                  label: Text(
+                    queue == null
+                        ? 'Queue status (offline)'
+                        : queue.pending == 0
+                            ? 'Queue status: empty'
+                            : 'Queue status: ${queue.pending} pending',
+                  ),
                 ),
                 const SizedBox(height: 48),
                 Text(
                   'Session uses secure storage and JWT against the Lunar Security API.',
                   textAlign: TextAlign.center,
-                  style: t.bodySmall?.copyWith(color: AppColors.silverMuted.withValues(alpha: 0.85)),
+                  style: t.bodySmall?.copyWith(
+                      color: AppColors.silverMuted.withValues(alpha: 0.85)),
                 ),
                 const SizedBox(height: 24),
               ],

@@ -13,7 +13,7 @@ Guard mobile app with backend integration for:
 ## Brand
 
 - Primary navy/teal: `#0D3240` / `#0A1F28`
-- Assets: `assets/images/logo_full.jpeg`, `logo_mark.png` (copied from repo root)
+- Assets: `assets/images/logo_without_bg.png` (generated from repo root `logo-without-bg.png`)
 
 ## Required backend
 

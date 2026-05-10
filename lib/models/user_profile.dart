@@ -21,16 +21,21 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     final idRaw = json['id'];
-    final id = idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '') ?? 0;
+    final id =
+        idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '') ?? 0;
     return UserProfile(
       id: id,
       email: json['email'] as String? ?? '',
       phone: json['phone'] as String?,
       status: json['status'] as String? ?? 'active',
       role: json['role'] as String? ?? 'guard',
-      createdAt: json['createdAt']?.toString() ?? json['created_at']?.toString(),
-      twoFactorEnabled: _bool(json['twoFactorEnabled'] ?? json['two_factor_enabled']),
-      payRatePenceHour: json['payRatePenceHour'] == null ? null : int.tryParse(json['payRatePenceHour'].toString()),
+      createdAt:
+          json['createdAt']?.toString() ?? json['created_at']?.toString(),
+      twoFactorEnabled:
+          _bool(json['twoFactorEnabled'] ?? json['two_factor_enabled']),
+      payRatePenceHour: json['payRatePenceHour'] == null
+          ? null
+          : int.tryParse(json['payRatePenceHour'].toString()),
     );
   }
 

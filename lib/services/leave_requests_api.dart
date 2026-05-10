@@ -25,9 +25,13 @@ class LeaveRequestsApi {
   }
 
   Future<List<Map<String, dynamic>>> listMine({int limit = 50}) async {
-    final res = await _dio.get<Map<String, dynamic>>('/leave-requests', queryParameters: {'limit': limit});
+    final res = await _dio.get<Map<String, dynamic>>('/leave-requests',
+        queryParameters: {'limit': limit});
     final items = (res.data?['data'] as Map?)?['items'];
     if (items is! List) return const [];
-    return items.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return items
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 }

@@ -1,11 +1,11 @@
 {
-    "name": "lunar_security_guard",
-    "short_name": "lunar_security_guard",
+    "name": "Lunar Security",
+    "short_name": "Lunar Security",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Lunar Security guard operations app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

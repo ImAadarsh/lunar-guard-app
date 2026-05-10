@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Lunar Security Guard</string>
+	<string>Lunar Security</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>lunar_security_guard</string>
+	<string>Lunar Security</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -70,6 +70,12 @@
 	<string>Face ID is used to securely unlock your guard session after login.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Location is required for geofence check-in and check-out validation.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Background location is used only during active shifts to send safety telemetry to Lunar Security command center.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Photo library access is required to save captured incident media.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

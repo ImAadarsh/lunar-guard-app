@@ -2,7 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 
 class BiometricAuthService {
-  BiometricAuthService({LocalAuthentication? auth}) : _auth = auth ?? LocalAuthentication();
+  BiometricAuthService({LocalAuthentication? auth})
+      : _auth = auth ?? LocalAuthentication();
 
   final LocalAuthentication _auth;
 
@@ -17,7 +18,7 @@ class BiometricAuthService {
       }
 
       final ok = await _auth.authenticate(
-        localizedReason: 'Verify your identity to access Lunar Security Guard',
+        localizedReason: 'Verify your identity to access Lunar Security',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,
