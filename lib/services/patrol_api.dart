@@ -8,6 +8,9 @@ class PatrolApi {
   Future<Map<String, dynamic>> submitScan({
     required int checkpointId,
     required DateTime scannedAt,
+    required double lat,
+    required double lng,
+    double? accuracyM,
     String? clientMessageId,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
@@ -15,6 +18,9 @@ class PatrolApi {
       data: {
         'checkpointId': checkpointId,
         'scannedAt': scannedAt.toIso8601String(),
+        'lat': lat,
+        'lng': lng,
+        if (accuracyM != null) 'accuracyM': accuracyM,
         if (clientMessageId != null && clientMessageId.isNotEmpty)
           'clientMessageId': clientMessageId,
       },

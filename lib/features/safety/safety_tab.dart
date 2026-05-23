@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 
 import '../../services/device_location_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/lunar_theme_extension.dart';
 import '../shell/offline_queue_controller.dart';
 import '../shift/shift_controller.dart';
 import 'incident_controller.dart';
+import 'incident_detail_screen.dart';
 
 class SafetyTab extends StatefulWidget {
   const SafetyTab({super.key});
@@ -20,9 +22,9 @@ class _SafetyTabState extends State<SafetyTab> {
   final _location = DeviceLocationService();
   final _titleCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
-  final _siteIdCtrl = TextEditingController(text: '1');
   final _visualNoteCtrl = TextEditingController();
   String _category = 'theft';
+  int? _selectedSiteId;
   XFile? _picked;
   final List<Map<String, String>> _attachments = [];
   XFile? _visualPicked;
@@ -30,34 +32,76 @@ class _SafetyTabState extends State<SafetyTab> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(context.read<IncidentController>().refresh);
+    Future.microtask(() {
+      if (!mounted) return;
+      context.read<IncidentController>().refresh();
+      context.read<ShiftController>().refresh();
+    });
   }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _descriptionCtrl.dispose();
-    _siteIdCtrl.dispose();
     _visualNoteCtrl.dispose();
     super.dispose();
+  }
+
+  List<({int siteId, String label})> _dutySites(ShiftController shifts) {
+    final seen = <int>{};
+    final sites = <({int siteId, String label})>[];
+    for (final shift in shifts.shifts) {
+      if (shift.status == 'cancelled' || shift.siteId <= 0) continue;
+      if (seen.add(shift.siteId)) {
+        sites.add((siteId: shift.siteId, label: shift.siteLabel));
+      }
+    }
+    sites.sort((a, b) => a.label.compareTo(b.label));
+    return sites;
+  }
+
+  int? _resolveIncidentSiteId({
+    required List<({int siteId, String label})> dutySites,
+    required int? activeSiteId,
+    required int? eligibleSiteId,
+  }) {
+    if (_selectedSiteId != null &&
+        dutySites.any((s) => s.siteId == _selectedSiteId)) {
+      return _selectedSiteId;
+    }
+    if (activeSiteId != null &&
+        dutySites.any((s) => s.siteId == activeSiteId)) {
+      return activeSiteId;
+    }
+    if (eligibleSiteId != null &&
+        dutySites.any((s) => s.siteId == eligibleSiteId)) {
+      return eligibleSiteId;
+    }
+    if (dutySites.isNotEmpty) return dutySites.first.siteId;
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final lunar = context.lunar;
     final incidents = context.watch<IncidentController>();
     final shifts = context.watch<ShiftController>();
     final activeShiftId = shifts.activeSession?.shiftId;
-    int? activeSiteId;
-    int? activeSessionId = shifts.activeSession?.id;
-    if (activeShiftId != null) {
-      for (final shift in shifts.shifts) {
-        if (shift.id == activeShiftId) {
-          activeSiteId = shift.siteId;
-          break;
-        }
-      }
-    }
+    final activeSessionId = shifts.activeSession?.id;
+    final activeShift =
+        activeShiftId != null ? shifts.shiftById(activeShiftId) : null;
+    final activeSiteId = activeShift?.siteId;
+    final eligibleSiteId = shifts.checkInEligibleShift?.siteId;
+    final dutySites = activeSiteId != null && activeShift != null
+        ? [(siteId: activeSiteId, label: activeShift.siteLabel)]
+        : _dutySites(shifts);
+    final incidentSiteId = _resolveIncidentSiteId(
+      dutySites: dutySites,
+      activeSiteId: activeSiteId,
+      eligibleSiteId: eligibleSiteId,
+    );
+    final lockSiteToDuty = activeSiteId != null;
 
     return RefreshIndicator(
       onRefresh: incidents.refresh,
@@ -184,7 +228,8 @@ class _SafetyTabState extends State<SafetyTab> {
                     activeSiteId == null
                         ? 'Check in to a shift to auto-bind visual logs to the active site.'
                         : 'Active site #$activeSiteId · visual log will be linked to command center.',
-                    style: t.bodySmall?.copyWith(color: AppColors.silverMuted),
+                    style: t.bodySmall
+                        ?.copyWith(color: lunar.mutedText),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -213,13 +258,15 @@ class _SafetyTabState extends State<SafetyTab> {
                             _visualPicked == null
                         ? null
                         : () async {
+                            final siteId = activeSiteId;
+                            if (siteId == null) return;
                             final incidentController =
                                 context.read<IncidentController>();
                             final queueController =
                                 context.read<OfflineQueueController>();
                             final err =
                                 await incidentController.submitVisualLog(
-                              siteId: activeSiteId!,
+                              siteId: siteId,
                               attendanceSessionId: activeSessionId,
                               note: _visualNoteCtrl.text.trim(),
                               photoPath: _visualPicked!.path,
@@ -254,18 +301,43 @@ class _SafetyTabState extends State<SafetyTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(
-                    controller: _siteIdCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Site ID',
-                      helperText: activeSiteId == null
-                          ? 'Manual fallback'
-                          : 'Auto-filled from active shift: #$activeSiteId',
+                  if (dutySites.isEmpty)
+                    Text(
+                      'No assigned sites loaded. Open My shift and pull to refresh, or check in first.',
+                      style: t.bodySmall?.copyWith(color: lunar.mutedText),
+                    )
+                  else
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      value: incidentSiteId,
+                      decoration: InputDecoration(
+                        labelText: 'Site',
+                        helperText: lockSiteToDuty
+                            ? 'On duty at this site'
+                            : activeSiteId != null &&
+                                    incidentSiteId == activeSiteId
+                                ? 'Defaulted to your active shift site'
+                                : 'Select the site this incident relates to',
+                      ),
+                      items: dutySites
+                          .map(
+                            (site) => DropdownMenuItem<int>(
+                              value: site.siteId,
+                              child: Text(
+                                site.label,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: lockSiteToDuty
+                          ? null
+                          : (siteId) =>
+                              setState(() => _selectedSiteId = siteId),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: 'theft',
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: const [
@@ -301,10 +373,6 @@ class _SafetyTabState extends State<SafetyTab> {
                       if (!mounted) return;
                       setState(() => _picked = picked);
                     },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.onDark,
-                      side: const BorderSide(color: AppColors.outline),
-                    ),
                     icon: const Icon(Icons.attach_file_rounded),
                     label: Text(_picked == null
                         ? 'Add photos / attachments'
@@ -329,10 +397,6 @@ class _SafetyTabState extends State<SafetyTab> {
                                   }));
                       });
                     },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.onDark,
-                      side: const BorderSide(color: AppColors.outline),
-                    ),
                     icon: const Icon(Icons.upload_file_rounded),
                     label: Text(_attachments.isEmpty
                         ? 'Attach videos/documents'
@@ -347,12 +411,14 @@ class _SafetyTabState extends State<SafetyTab> {
                                 context.read<IncidentController>();
                             final queueController =
                                 context.read<OfflineQueueController>();
-                            final siteId = activeSiteId ??
-                                int.tryParse(_siteIdCtrl.text.trim());
+                            final siteId = incidentSiteId;
                             if (siteId == null || siteId <= 0) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Enter a valid Site ID.')),
+                                  content: Text(
+                                    'Select a site for this incident report.',
+                                  ),
+                                ),
                               );
                               return;
                             }
@@ -395,14 +461,22 @@ class _SafetyTabState extends State<SafetyTab> {
           const SizedBox(height: 8),
           if (incidents.incidents.isEmpty)
             Text('No incidents yet.',
-                style: t.bodySmall?.copyWith(color: AppColors.silverMuted))
+                style: t.bodySmall?.copyWith(color: lunar.mutedText))
           else
             ...incidents.incidents.take(5).map(
                   (i) => ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(i.title),
                     subtitle: Text('Site ${i.siteId} · ${i.status}'),
-                    trailing: Text(i.category),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              IncidentDetailScreen(incidentId: i.id),
+                        ),
+                      );
+                    },
                   ),
                 ),
           if (incidents.error != null)

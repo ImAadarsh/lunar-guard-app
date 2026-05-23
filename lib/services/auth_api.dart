@@ -32,4 +32,12 @@ class AuthApi {
       data: refreshToken != null ? {'refreshToken': refreshToken} : {},
     );
   }
+
+  Future<Map<String, dynamic>> refresh({required String refreshToken}) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/auth/refresh',
+      data: {'refreshToken': refreshToken},
+    );
+    return res.data ?? {};
+  }
 }

@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 import '../../models/patrol_scan.dart';
 import '../../services/api_client.dart';
 import '../../services/offline_queue_service.dart';
+import '../../models/device_position.dart';
 import '../../services/patrol_api.dart';
 import '../../services/secure_token_store.dart';
+import '../../utils/checkpoint_qr.dart';
+import '../../utils/geo_utils.dart';
 
 class PatrolController extends ChangeNotifier {
   PatrolController({SecureTokenStore? tokenStore, OfflineQueueService? queue})
@@ -39,7 +42,52 @@ class PatrolController extends ChangeNotifier {
     }
   }
 
-  Future<String?> submitCheckpointId(int checkpointId) async {
+  Map<String, dynamic>? checkpointFromSchedule(int checkpointId) {
+    for (final item in schedule) {
+      final id = item['checkpointId'];
+      if (id == checkpointId || id.toString() == checkpointId.toString()) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  String? validateScanLocation(
+    int checkpointId,
+    DevicePosition position,
+  ) {
+    final item = checkpointFromSchedule(checkpointId);
+    if (item == null) return null;
+    final cpLat = double.tryParse(item['lat']?.toString() ?? '');
+    final cpLng = double.tryParse(item['lng']?.toString() ?? '');
+    if (cpLat == null || cpLng == null) return null;
+    return validateCheckpointScan(
+      lat: position.lat,
+      lng: position.lng,
+      checkpointLat: cpLat,
+      checkpointLng: cpLng,
+      accuracyM: position.accuracyM,
+    );
+  }
+
+  Future<String?> submitQrCode(
+    String raw, {
+    required DevicePosition position,
+  }) async {
+    final checkpointId = parseCheckpointQr(raw);
+    if (checkpointId == null) {
+      return 'Could not read checkpoint from QR code.';
+    }
+    return submitCheckpointId(checkpointId, position: position);
+  }
+
+  Future<String?> submitCheckpointId(
+    int checkpointId, {
+    required DevicePosition position,
+  }) async {
+    final locationErr = validateScanLocation(checkpointId, position);
+    if (locationErr != null) return locationErr;
+
     final scannedAt = DateTime.now().toUtc();
     final clientMessageId =
         '${DateTime.now().millisecondsSinceEpoch}-$checkpointId';
@@ -47,6 +95,9 @@ class PatrolController extends ChangeNotifier {
       await _api.submitScan(
         checkpointId: checkpointId,
         scannedAt: scannedAt,
+        lat: position.lat,
+        lng: position.lng,
+        accuracyM: position.accuracyM,
         clientMessageId: clientMessageId,
       );
       await refresh();
@@ -58,6 +109,9 @@ class PatrolController extends ChangeNotifier {
           payload: {
             'checkpointId': checkpointId,
             'scannedAt': scannedAt.toIso8601String(),
+            'lat': position.lat,
+            'lng': position.lng,
+            if (position.accuracyM != null) 'accuracyM': position.accuracyM,
             'clientMessageId': clientMessageId,
           },
         );

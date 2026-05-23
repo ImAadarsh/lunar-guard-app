@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../auth/auth_controller.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/lunar_theme_extension.dart';
 import '../auth/login_screen.dart';
 import '../shell/guard_shell.dart';
 
@@ -63,20 +64,30 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final lunar = context.lunar;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0F3A4A),
-              AppColors.primaryDark,
-              Color(0xFF050F14),
-            ],
-            stops: [0, 0.45, 1],
+            colors: isDark
+                ? const [
+                    Color(0xFF0F3A4A),
+                    AppColors.primaryDark,
+                    Color(0xFF050F14),
+                  ]
+                : [
+                    cs.surface,
+                    const Color(0xFFE8F4F8),
+                    cs.surfaceContainerHighest,
+                  ],
+            stops: const [0, 0.45, 1],
           ),
         ),
         child: SafeArea(
@@ -98,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen>
                       'FIELD OPERATIONS',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             letterSpacing: 4,
-                            color: AppColors.silverMuted,
+                            color: lunar.mutedText,
                             fontWeight: FontWeight.w600,
                           ),
                     ),
@@ -108,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen>
                       height: 32,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        color: AppColors.silver.withValues(alpha: 0.6),
+                        color: lunar.iconMuted.withValues(alpha: 0.6),
                       ),
                     ),
                   ],

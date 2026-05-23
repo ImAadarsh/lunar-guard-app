@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../services/api_client.dart';
 import '../../services/attendance_api.dart';
+import '../../services/background_telemetry_service.dart';
 import '../../services/device_location_service.dart';
 import '../../services/offline_queue_service.dart';
 import '../../services/secure_token_store.dart';
@@ -14,15 +15,18 @@ class TelemetryController extends ChangeNotifier {
     SecureTokenStore? tokenStore,
     DeviceLocationService? location,
     OfflineQueueService? queue,
+    BackgroundTelemetryService? background,
   })  : _tokenStore = tokenStore ?? SecureTokenStore(),
         _location = location ?? DeviceLocationService(),
-        _queue = queue ?? OfflineQueueService() {
+        _queue = queue ?? OfflineQueueService(),
+        _background = background ?? BackgroundTelemetryService.instance {
     _api = AttendanceApi(ApiClient.createAuthorized(_tokenStore));
   }
 
   final SecureTokenStore _tokenStore;
   final DeviceLocationService _location;
   final OfflineQueueService _queue;
+  final BackgroundTelemetryService _background;
   late final AttendanceApi _api;
 
   Timer? _timer;
@@ -31,26 +35,47 @@ class TelemetryController extends ChangeNotifier {
   String? error;
   bool sending = false;
 
-  bool get running => _timer != null;
+  bool get running => activeShiftId != null && (_timer != null || _background.isTracking);
 
   void updateActiveShift(int? shiftId) {
-    if (shiftId == activeShiftId && running == (shiftId != null)) return;
+    if (shiftId == activeShiftId && (shiftId == null || _timer != null)) return;
     activeShiftId = shiftId;
     if (shiftId == null) {
-      stop();
+      _stopTracking();
       return;
     }
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 60), (_) => sendNow());
-    sendNow();
+    _startTracking(shiftId);
     notifyListeners();
   }
 
   void stop() {
+    activeShiftId = null;
+    _stopTracking();
+    notifyListeners();
+  }
+
+  Future<void> _startTracking(int shiftId) async {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 60), (_) => sendNow());
+    try {
+      await _background.start(
+        onPosition: (lat, lng, recordedAt) {
+          unawaited(_submitPoints(shiftId, [
+            {'lat': lat, 'lng': lng, 'recordedAt': recordedAt},
+          ]));
+        },
+      );
+    } catch (e) {
+      error = e.toString();
+    }
+    unawaited(sendNow());
+    notifyListeners();
+  }
+
+  Future<void> _stopTracking() async {
     _timer?.cancel();
     _timer = null;
-    activeShiftId = null;
-    notifyListeners();
+    await _background.stop();
   }
 
   Future<void> sendNow() async {
@@ -62,20 +87,9 @@ class TelemetryController extends ChangeNotifier {
     final recordedAt = DateTime.now().toUtc().toIso8601String();
     try {
       final point = await _location.getCurrentLatLng();
-      final points = [
+      await _submitPoints(shiftId, [
         {'lat': point.lat, 'lng': point.lng, 'recordedAt': recordedAt},
-      ];
-      final payload = {
-        'shiftId': shiftId,
-        'points': points,
-      };
-      try {
-        await _api.submitGpsTelemetry(shiftId: shiftId, points: points);
-        lastSentAt = DateTime.now();
-      } on DioException catch (e) {
-        await _queue.enqueue(type: 'telemetry_gps', payload: payload);
-        error = e.message ?? 'Telemetry queued for retry';
-      }
+      ]);
     } catch (e) {
       error = e.toString();
     } finally {
@@ -84,9 +98,27 @@ class TelemetryController extends ChangeNotifier {
     }
   }
 
+  Future<void> _submitPoints(
+    int shiftId,
+    List<Map<String, dynamic>> points,
+  ) async {
+    if (points.isEmpty) return;
+    final payload = {'shiftId': shiftId, 'points': points};
+    try {
+      await _api.submitGpsTelemetry(shiftId: shiftId, points: points);
+      lastSentAt = DateTime.now();
+      error = null;
+    } on DioException catch (e) {
+      await _queue.enqueue(type: 'telemetry_gps', payload: payload);
+      error = e.message ?? 'Telemetry queued for retry';
+    }
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
+    unawaited(_background.stop());
     super.dispose();
   }
 }

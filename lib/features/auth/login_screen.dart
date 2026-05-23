@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../auth/auth_controller.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/lunar_theme_extension.dart';
+import '../../widgets/lunar_theme_toggle.dart';
 import '../shell/guard_shell.dart';
 import '../shell/offline_queue_controller.dart';
 
@@ -83,6 +85,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final lunar = context.lunar;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final auth = context.watch<AuthController>();
     OfflineQueueController? queue;
     try {
@@ -95,19 +100,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppColors.primaryDark,
-              Color(0xFF0D2E3A),
-              AppColors.primaryDark,
-            ],
+            colors: isDark
+                ? const [
+                    AppColors.primaryDark,
+                    Color(0xFF0D2E3A),
+                    AppColors.primaryDark,
+                  ]
+                : [
+                    cs.surface,
+                    const Color(0xFFE8F4F8),
+                    cs.surfaceContainerHighest,
+                  ],
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
+          child: Stack(
+            children: [
+              SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -132,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Guard sign in',
                   textAlign: TextAlign.center,
-                  style: t.bodyMedium?.copyWith(color: AppColors.silverMuted),
+                  style: t.bodyMedium?.copyWith(color: lunar.mutedText),
                 ),
                 const SizedBox(height: 40),
                 TextField(
@@ -182,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: needs2fa ? null : () {},
                     child: Text(
                       'Forgot password?',
-                      style: t.labelLarge?.copyWith(color: AppColors.silver),
+                      style: t.labelLarge?.copyWith(color: lunar.linkColor),
                     ),
                   ),
                 ),
@@ -190,27 +203,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 FilledButton(
                   onPressed: loading ? null : (needs2fa ? _submit2fa : _signIn),
                   child: loading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 22,
                           width: 22,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppColors.onDark),
+                            strokeWidth: 2,
+                            color: cs.onPrimary,
+                          ),
                         )
                       : Text(needs2fa ? 'Verify & sign in' : 'Sign in'),
                 ),
                 const SizedBox(height: 32),
                 Row(
                   children: [
-                    const Expanded(child: Divider(color: AppColors.outline)),
+                    Expanded(child: Divider(color: lunar.border)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         'Low-connectivity mode',
-                        style: t.labelSmall
-                            ?.copyWith(color: AppColors.silverMuted),
+                        style:
+                            t.labelSmall?.copyWith(color: lunar.mutedText),
                       ),
                     ),
-                    const Expanded(child: Divider(color: AppColors.outline)),
+                    Expanded(child: Divider(color: lunar.border)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -222,13 +237,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content: Text(
-                                    'Pending ${queue.pending}. Synced $synced queued actions.')),
+                              content: Text(
+                                'Pending ${queue.pending}. Synced $synced queued actions.',
+                              ),
+                            ),
                           );
                         },
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.silver,
-                    side: const BorderSide(color: AppColors.outline),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   icon: const Icon(Icons.cloud_off_outlined, size: 20),
@@ -244,12 +259,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Session uses secure storage and JWT against the Lunar Security API.',
                   textAlign: TextAlign.center,
-                  style: t.bodySmall?.copyWith(
-                      color: AppColors.silverMuted.withValues(alpha: 0.85)),
+                  style: t.bodySmall?.copyWith(color: lunar.mutedText),
                 ),
                 const SizedBox(height: 24),
               ],
             ),
+          ),
+              Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8, right: 8),
+                  child: const LunarThemeToggle(),
+                ),
+              ),
+            ],
           ),
         ),
       ),

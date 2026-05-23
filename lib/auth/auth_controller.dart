@@ -185,6 +185,22 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  void applyRefreshedTokens(String accessToken, String refreshToken) {
+    _access = accessToken;
+    _refresh = refreshToken;
+    notifyListeners();
+  }
+
+  Future<void> handleSessionExpired() async {
+    _access = null;
+    _refresh = null;
+    profile = null;
+    needsTwoFactor = false;
+    preAuthToken = null;
+    await _store.clear();
+    notifyListeners();
+  }
+
   Future<String?> signOut() async {
     _busy = true;
     notifyListeners();
@@ -230,8 +246,20 @@ class AuthController extends ChangeNotifier {
 
   Map<String, dynamic> _normalizeUserJson(Map<String, dynamic> j) {
     final out = Map<String, dynamic>.from(j);
-    if (out['created_at'] != null && out['createdAt'] == null) {
-      out['createdAt'] = out['created_at'];
+    const pairs = [
+      ('created_at', 'createdAt'),
+      ('two_factor_enabled', 'twoFactorEnabled'),
+      ('pay_rate_pence_hour', 'payRatePenceHour'),
+      ('full_name', 'fullName'),
+      ('given_names', 'givenNames'),
+      ('sia_type', 'siaType'),
+      ('sia_number', 'siaNumber'),
+      ('sia_expiry_date', 'siaExpiryDate'),
+    ];
+    for (final (snake, camel) in pairs) {
+      if (out[snake] != null && out[camel] == null) {
+        out[camel] = out[snake];
+      }
     }
     return out;
   }

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../services/offline_queue_service.dart';
 
+export '../../services/offline_queue_service.dart' show OfflineQueueItem;
+
 class OfflineQueueController extends ChangeNotifier {
   OfflineQueueController({OfflineQueueService? queue})
       : _queue = queue ?? OfflineQueueService() {
@@ -21,11 +23,13 @@ class OfflineQueueController extends ChangeNotifier {
   bool syncing = false;
   String? error;
   int pending = 0;
+  List<OfflineQueueItem> items = const [];
   DateTime? lastSyncedAt;
   final List<String> history = <String>[];
 
   Future<void> refresh() async {
     pending = await _queue.pendingCount();
+    items = await _queue.pendingItems();
     notifyListeners();
   }
 
@@ -36,6 +40,7 @@ class OfflineQueueController extends ChangeNotifier {
     try {
       final synced = await _queue.flush();
       pending = await _queue.pendingCount();
+      items = await _queue.pendingItems();
       lastSyncedAt = DateTime.now();
       if (synced > 0) {
         _retrySeconds = 5;

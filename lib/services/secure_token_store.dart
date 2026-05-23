@@ -23,6 +23,14 @@ class SecureTokenStore {
     await _s.write(key: _kUser, value: jsonEncode(user));
   }
 
+  Future<void> updateTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await _s.write(key: _kAccess, value: accessToken);
+    await _s.write(key: _kRefresh, value: refreshToken);
+  }
+
   Future<String?> readAccessToken() => _s.read(key: _kAccess);
   Future<String?> readRefreshToken() => _s.read(key: _kRefresh);
 

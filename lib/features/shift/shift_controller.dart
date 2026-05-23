@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -9,6 +7,7 @@ import '../../services/api_client.dart';
 import '../../services/attendance_api.dart';
 import '../../services/secure_token_store.dart';
 import '../../services/shifts_api.dart';
+import '../../utils/geo_utils.dart';
 
 class ShiftController extends ChangeNotifier {
   ShiftController({SecureTokenStore? tokenStore})
@@ -27,6 +26,8 @@ class ShiftController extends ChangeNotifier {
   List<GuardShift> shifts = const [];
   List<AttendanceSession> sessions = const [];
   final Map<int, Map<String, dynamic>> siteGeometry = {};
+
+  static const checkInGraceBefore = Duration(minutes: 15);
 
   AttendanceSession? get activeSession {
     try {
@@ -50,6 +51,57 @@ class ShiftController extends ChangeNotifier {
     return sorted.isEmpty ? null : sorted.first;
   }
 
+  bool isWithinShiftWindow(GuardShift shift) {
+    final start = shift.startsAt;
+    final end = shift.endsAt;
+    if (start == null || end == null) return false;
+    final now = DateTime.now();
+    final windowStart = start.subtract(checkInGraceBefore);
+    return !now.isBefore(windowStart) && !now.isAfter(end);
+  }
+
+  GuardShift? get checkInEligibleShift {
+    if (activeSession != null) return null;
+    final sorted = [...shifts]..sort((a, b) {
+        final aa = a.startsAt?.millisecondsSinceEpoch ?? 0;
+        final bb = b.startsAt?.millisecondsSinceEpoch ?? 0;
+        return aa.compareTo(bb);
+      });
+    for (final shift in sorted) {
+      if (shift.status == 'completed' || shift.status == 'cancelled') continue;
+      if (isWithinShiftWindow(shift)) return shift;
+    }
+    return null;
+  }
+
+  GuardShift? shiftById(int? id) {
+    if (id == null) return null;
+    try {
+      return shifts.firstWhere((s) => s.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  GuardShift? get attendanceShift {
+    final session = activeSession;
+    if (session != null) {
+      return shiftById(session.shiftId);
+    }
+    return checkInEligibleShift;
+  }
+
+  Map<String, dynamic>? siteFor(int siteId) => siteGeometry[siteId];
+
+  ({double lat, double lng})? siteLatLng(int siteId) {
+    final site = siteFor(siteId);
+    if (site == null) return null;
+    final lat = double.tryParse(site['centerLat']?.toString() ?? '');
+    final lng = double.tryParse(site['centerLng']?.toString() ?? '');
+    if (lat == null || lng == null) return null;
+    return (lat: lat, lng: lng);
+  }
+
   Future<void> refresh() async {
     loading = true;
     error = null;
@@ -59,13 +111,13 @@ class ShiftController extends ChangeNotifier {
       final sessionRows = await _attendanceApi.listMySessions();
       shifts = shiftRows.map(GuardShift.fromJson).toList();
       sessions = sessionRows.map(AttendanceSession.fromJson).toList();
-      for (final shift in shifts.take(5)) {
-        if (!siteGeometry.containsKey(shift.siteId) && shift.siteId > 0) {
-          try {
-            final site = await _shiftsApi.getSite(shift.siteId);
-            siteGeometry[shift.siteId] = site;
-          } catch (_) {}
-        }
+      final siteIds = shifts.map((s) => s.siteId).where((id) => id > 0).toSet();
+      for (final siteId in siteIds) {
+        if (siteGeometry.containsKey(siteId)) continue;
+        try {
+          final site = await _shiftsApi.getSite(siteId);
+          siteGeometry[siteId] = site;
+        } catch (_) {}
       }
     } on DioException catch (e) {
       error = _err(e);
@@ -75,9 +127,31 @@ class ShiftController extends ChangeNotifier {
     }
   }
 
+  bool canCheckInAt(GuardShift shift, double lat, double lng) {
+    final site = siteGeometry[shift.siteId];
+    if (site == null) return false;
+    return isInsideGeofence(site, lat, lng);
+  }
+
+  String? checkInBlockedReason(GuardShift shift, double lat, double lng) {
+    if (!isWithinShiftWindow(shift)) {
+      return 'Check-in opens 15 minutes before shift start and closes when the shift ends.';
+    }
+    final site = siteGeometry[shift.siteId];
+    if (site == null) {
+      return 'Site geofence not loaded yet. Pull to refresh and try again.';
+    }
+    if (canCheckInAt(shift, lat, lng)) return null;
+    return 'You must be inside the site geofence to check in.';
+  }
+
   Future<String?> checkIn({required double lat, required double lng}) async {
-    final shift = nextShift;
-    if (shift == null) return 'No upcoming shift found.';
+    final shift = checkInEligibleShift;
+    if (shift == null) {
+      return 'No shift in your check-in window right now.';
+    }
+    final blocked = checkInBlockedReason(shift, lat, lng);
+    if (blocked != null) return blocked;
     try {
       await _attendanceApi.checkIn(shiftId: shift.id, lat: lat, lng: lng);
       await refresh();
@@ -88,36 +162,35 @@ class ShiftController extends ChangeNotifier {
   }
 
   String geofenceHintFor(GuardShift shift, {double? lat, double? lng}) {
+    if (!isWithinShiftWindow(shift)) {
+      return 'Check-in for ${shift.siteLabel} opens 15 minutes before ${shift.startsAt?.toLocal().toString().substring(11, 16) ?? 'start'}.';
+    }
     final site = siteGeometry[shift.siteId];
-    if (site == null) return 'Site geofence will be validated by the backend.';
+    if (site == null) {
+      return 'Loading site geofence… pull to refresh if this persists.';
+    }
+    if (lat == null || lng == null) {
+      final hasPolygon = site['geofencePolygon'] != null;
+      if (hasPolygon) {
+        return 'Site uses a polygon geofence. Use “Preview geofence” before check-in.';
+      }
+      final radius = double.tryParse(site['geofenceRadiusM']?.toString() ?? '');
+      return radius == null
+          ? 'No geofence configured for this site.'
+          : 'Circular geofence: ${radius.round()}m from site center.';
+    }
+    if (canCheckInAt(shift, lat, lng)) {
+      return 'Inside site geofence — you can check in.';
+    }
     final centerLat = double.tryParse(site['centerLat']?.toString() ?? '');
     final centerLng = double.tryParse(site['centerLng']?.toString() ?? '');
     final radius = double.tryParse(site['geofenceRadiusM']?.toString() ?? '');
-    if (centerLat == null || centerLng == null || radius == null) {
-      return 'Polygon geofence configured. Backend will validate precise boundary.';
+    if (centerLat != null && centerLng != null && radius != null) {
+      final meters = distanceMeters(lat, lng, centerLat, centerLng);
+      return 'Outside site geofence (${meters.round()}m from center, limit ${radius.round()}m).';
     }
-    if (lat == null || lng == null) {
-      return 'Geofence radius ${radius.round()}m around $centerLat, $centerLng.';
-    }
-    final meters = _distanceMeters(lat, lng, centerLat, centerLng);
-    return meters <= radius
-        ? 'You appear inside the site geofence (${meters.round()}m from center).'
-        : 'You appear outside the site geofence (${meters.round()}m from center, radius ${radius.round()}m).';
+    return 'Outside site geofence — move onto the site to check in.';
   }
-
-  double _distanceMeters(double lat1, double lng1, double lat2, double lng2) {
-    const earth = 6371000.0;
-    final dLat = _rad(lat2 - lat1);
-    final dLng = _rad(lng2 - lng1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_rad(lat1)) *
-            math.cos(_rad(lat2)) *
-            math.sin(dLng / 2) *
-            math.sin(dLng / 2);
-    return earth * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-  }
-
-  double _rad(double deg) => deg * math.pi / 180;
 
   Future<String?> checkOut({required double lat, required double lng}) async {
     final session = activeSession;

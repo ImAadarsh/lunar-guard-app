@@ -6,6 +6,7 @@ class GuardShift {
     required this.startsAt,
     required this.endsAt,
     required this.status,
+    this.siteName,
   });
 
   final int id;
@@ -14,6 +15,10 @@ class GuardShift {
   final DateTime? startsAt;
   final DateTime? endsAt;
   final String status;
+  final String? siteName;
+
+  String get siteLabel =>
+      siteName?.trim().isNotEmpty == true ? siteName!.trim() : 'Site #$siteId';
 
   factory GuardShift.fromJson(Map<String, dynamic> json) {
     return GuardShift(
@@ -23,6 +28,7 @@ class GuardShift {
       startsAt: _dt(json['startsAt']),
       endsAt: _dt(json['endsAt']),
       status: json['status']?.toString() ?? 'scheduled',
+      siteName: json['siteName']?.toString(),
     );
   }
 

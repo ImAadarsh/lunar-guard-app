@@ -1,7 +1,9 @@
 import 'package:geolocator/geolocator.dart';
 
+import '../models/device_position.dart';
+
 class DeviceLocationService {
-  Future<({double lat, double lng})> getCurrentLatLng() async {
+  Future<DevicePosition> getCurrentPosition() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw Exception('Location services are disabled.');
@@ -17,7 +19,18 @@ class DeviceLocationService {
     }
 
     final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    return (lat: pos.latitude, lng: pos.longitude);
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 20),
+    );
+    return DevicePosition(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      accuracyM: pos.accuracy >= 0 ? pos.accuracy : null,
+    );
+  }
+
+  Future<({double lat, double lng})> getCurrentLatLng() async {
+    final p = await getCurrentPosition();
+    return (lat: p.lat, lng: p.lng);
   }
 }

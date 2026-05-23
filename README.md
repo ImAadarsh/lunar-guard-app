@@ -48,11 +48,21 @@ GOOGLE_MAPS_API_KEY=
 
 ### 2) Flutter API base URL
 
-Use `--dart-define` when running:
+Use `--dart-define` when running. Base URL is the **host only** (no `/api/v1` — the app adds that).
+
+**Production:**
+
+```bash
+flutter run --dart-define=API_BASE_URL=https://lunar.endeavourdigital.cloud
+```
+
+**Local:**
 
 ```bash
 flutter run --dart-define=API_BASE_URL=http://127.0.0.1:4000
 ```
+
+After login, the app calls `GET /users/:id` for full profile (name, phone, SIA, pay rate) — aligned with the admin portal user API.
 
 For physical Android over USB, use `adb reverse` (recommended):
 
@@ -127,7 +137,7 @@ flutter run -d chrome
 
 - `lib/theme/` — colors + `ThemeData` (Material 3, Inter via `google_fonts`)
 - `lib/features/splash/` — branded splash → login
-- `lib/features/auth/` — email/password (mock sign-in → main shell)
+- `lib/features/auth/` — email/password + optional 2FA → main shell
 - `lib/features/shell/` — `NavigationBar` + 5 tabs
 - Tabs: `home`, `shift`, `patrol`, `safety`, `profile`
 
