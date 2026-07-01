@@ -8,6 +8,7 @@ import '../../theme/lunar_theme_extension.dart';
 import '../../utils/format_datetime.dart';
 import '../../utils/maps_links.dart';
 import '../../widgets/status_chip.dart';
+import 'shift_chat_panel.dart';
 import 'shift_controller.dart';
 
 class ShiftTab extends StatefulWidget {
@@ -20,6 +21,20 @@ class ShiftTab extends StatefulWidget {
 class _ShiftTabState extends State<ShiftTab> {
   final _location = DeviceLocationService();
   String? _geofenceHint;
+  int? _selectedShiftId;
+
+  int? _chatShiftId(ShiftController c) {
+    final activeId = c.activeSession?.shiftId;
+    if (activeId != null) return activeId;
+    if (_selectedShiftId != null) {
+      return c.shiftById(_selectedShiftId)?.id;
+    }
+    return c.attendanceShift?.id ?? c.nextShift?.id;
+  }
+
+  void _selectShift(int shiftId) {
+    setState(() => _selectedShiftId = shiftId);
+  }
 
   @override
   void initState() {
@@ -140,6 +155,8 @@ class _ShiftTabState extends State<ShiftTab> {
     final dutyShift = c.attendanceShift;
     final canCheckIn = c.activeSession == null && c.checkInEligibleShift != null;
     final canCheckOut = c.activeSession != null;
+    final chatShiftId = _chatShiftId(c);
+    final chatShift = c.shiftById(chatShiftId);
 
     return RefreshIndicator(
       onRefresh: c.refresh,
@@ -162,9 +179,11 @@ class _ShiftTabState extends State<ShiftTab> {
                       shift: s,
                       window: _shiftWindowLabel(s),
                       onOpenMap: () => _openSiteMap(c, s),
+                      onSelect: () => _selectShift(s.id),
                       hasMap: c.siteLatLng(s.siteId) != null,
                       isActive: c.activeSession?.shiftId == s.id,
                       isInWindow: c.isWithinShiftWindow(s),
+                      isSelected: chatShiftId == s.id,
                     ),
                   ),
                 ),
@@ -283,6 +302,12 @@ class _ShiftTabState extends State<ShiftTab> {
               ),
             ),
           ),
+          if (chatShiftId != null)
+            ShiftChatPanel(
+              key: ValueKey(chatShiftId),
+              shiftId: chatShiftId,
+              siteLabel: chatShift?.siteLabel,
+            ),
         ],
       ),
     );
@@ -294,17 +319,21 @@ class _ShiftCard extends StatelessWidget {
     required this.shift,
     required this.window,
     required this.onOpenMap,
+    required this.onSelect,
     required this.hasMap,
     required this.isActive,
     required this.isInWindow,
+    required this.isSelected,
   });
 
   final GuardShift shift;
   final String window;
   final VoidCallback onOpenMap;
+  final VoidCallback onSelect;
   final bool hasMap;
   final bool isActive;
   final bool isInWindow;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -314,9 +343,19 @@ class _ShiftCard extends StatelessWidget {
         shift.status == 'completed' || shift.status == 'cancelled';
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: isSelected
+            ? BorderSide(color: context.cs.primary, width: 2)
+            : BorderSide.none,
+      ),
+      child: InkWell(
+        onTap: onSelect,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
@@ -369,6 +408,7 @@ class _ShiftCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
         ),
       ),
     );

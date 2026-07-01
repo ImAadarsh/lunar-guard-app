@@ -132,6 +132,12 @@ class OfflineQueueService {
       case 'visual_log':
         await _replayVisualLog(dio, item.payload);
         break;
+      case 'shift_chat_message':
+        await dio.post<Map<String, dynamic>>(
+          '/shift-chats/${item.payload['chatId']}/messages',
+          data: {'body': item.payload['body']},
+        );
+        break;
       default:
         throw StateError('Unsupported queued action: ${item.type}');
     }

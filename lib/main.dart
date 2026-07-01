@@ -13,6 +13,7 @@ import 'features/shell/shell_navigation_controller.dart';
 import 'features/shell/telemetry_controller.dart';
 import 'features/shift/leave_controller.dart';
 import 'features/auth/login_screen.dart';
+import 'features/shift/shift_chat_controller.dart';
 import 'features/shift/shift_controller.dart';
 import 'services/api_client.dart';
 import 'services/local_notification_service.dart';
@@ -53,6 +54,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider(create: (_) => HomeController()),
         ChangeNotifierProvider(create: (_) => ShiftController()),
+        ChangeNotifierProvider(create: (_) => ShiftChatController()),
         ChangeNotifierProvider(create: (_) => LeaveController()),
         ChangeNotifierProvider(create: (_) => PatrolController()),
         ChangeNotifierProvider(create: (_) => IncidentController()),
